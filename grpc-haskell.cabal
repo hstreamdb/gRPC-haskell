@@ -32,7 +32,7 @@ library
     , proto3-suite
     , proto3-wire
     , grpc-haskell-core
-    , async >=2.1 && <2.3
+    , async
     , managed >= 1.0.5
 
   exposed-modules:
@@ -226,10 +226,10 @@ benchmark bench
   build-depends:
       base >=4.8 && <5.0
     , grpc-haskell
-    , async ==2.1.*
-    , criterion ==1.1.*
+    , async
+    , criterion
     , proto3-suite
-    , bytestring ==0.10.*
+    , bytestring
     , random >=1.0.0
   hs-source-dirs: bench
   main-is: Bench.hs
