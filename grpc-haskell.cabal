@@ -25,6 +25,11 @@ flag with-examples
   manual:      True
   default:     False
 
+Flag enable-bench
+  Description: Turn on benchmark.
+  manual:      True
+  default:     False
+
 library
   build-depends:
       base >=4.8 && <5.0
@@ -221,10 +226,13 @@ test-suite tests
     CC-Options:  -DGRPC_HASKELL_DEBUG
 
 benchmark bench
+  if !flag(enable-bench)
+    buildable: False
   type: exitcode-stdio-1.0
   build-depends:
       base >=4.8 && <5.0
     , grpc-haskell
+    , grpc-haskell-core
     , async
     , criterion
     , proto3-suite
