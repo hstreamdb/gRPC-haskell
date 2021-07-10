@@ -71,7 +71,7 @@ withServerCallAsync s f = mask $ \unmask ->
 type ServerHandler
   =  ServerCall
   -> ByteString
-  -> IO (ByteString, MetadataMap, C.StatusCode, StatusDetails)
+  -> IO (Maybe ByteString, MetadataMap, C.StatusCode, StatusDetails)
 
 -- | Handle one unregistered call.
 serverHandleNormalCall :: Server
@@ -104,11 +104,18 @@ serverHandleNormalCall'
             -- TODO: We have to put 'OpRecvCloseOnServer' in the response ops,
             -- or else the client times out. Given this, I have no idea how to
             -- check for cancellation on the server.
-            runOps c cq
-              [ OpRecvCloseOnServer
-              , OpSendMessage rsp,
-                OpSendStatusFromServer trailMeta st ds
-              ]
+            case rsp of
+              Nothing -> 
+                runOps c cq
+                  [ OpRecvCloseOnServer,
+                    OpSendStatusFromServer trailMeta st ds
+                  ]
+              Just rp -> 
+                runOps c cq
+                  [ OpRecvCloseOnServer
+                  , OpSendMessage rp,
+                    OpSendStatusFromServer trailMeta st ds
+                  ]
               >>= \case
                 Left x -> do
                   grpcDebug "serverHandleNormalCall(U): resp failed."
