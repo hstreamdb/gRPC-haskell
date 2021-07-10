@@ -28,7 +28,7 @@ data ServerRequest (streamType :: GRPCMethodType) request response where
   ServerBiDiRequest :: ServerCallMetadata -> StreamRecv request -> StreamSend response -> ServerRequest 'BiDiStreaming request response
 
 data ServerResponse (streamType :: GRPCMethodType) response where
-  ServerNormalResponse :: response -> MetadataMap -> StatusCode -> StatusDetails
+  ServerNormalResponse :: Maybe response -> MetadataMap -> StatusCode -> StatusDetails
                        -> ServerResponse 'Normal response
   ServerReaderResponse :: Maybe response -> MetadataMap -> StatusCode -> StatusDetails
                        -> ServerResponse 'ClientStreaming response
@@ -39,7 +39,7 @@ data ServerResponse (streamType :: GRPCMethodType) response where
 
 type ServerHandler a b =
   ServerCall a
-  -> IO (b, MetadataMap, StatusCode, StatusDetails)
+  -> IO (Maybe b, MetadataMap, StatusCode, StatusDetails)
 
 convertGeneratedServerHandler ::
   (ServerRequest 'Normal request response -> IO (ServerResponse 'Normal response))
@@ -56,7 +56,7 @@ convertServerHandler :: (Message a, Message b)
 convertServerHandler f c = case fromByteString (payload c) of
   Left x  -> CE.throw (GRPCIODecodeError $ show x)
   Right x -> do (y, tm, sc, sd) <- f (fmap (const x) c)
-                return (toBS y, tm, sc, sd)
+                return (fmap toBS y, tm, sc, sd)
 
 type ServerReaderHandler a b
   =  ServerCall (MethodPayload 'ClientStreaming)
