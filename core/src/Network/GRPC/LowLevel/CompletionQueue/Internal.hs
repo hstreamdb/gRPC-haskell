@@ -126,7 +126,7 @@ pluck' CompletionQueue{..} tag mwait =
 eventToError :: C.Event -> (Either GRPCIOError a)
 eventToError (C.Event C.QueueShutdown _ _) = Left GRPCIOShutdown
 eventToError (C.Event C.QueueTimeout _ _) = Left GRPCIOTimeout
-eventToError (C.Event C.OpComplete False _) = Left GRPCIOTimeout
+eventToError (C.Event C.OpComplete False _) = Left GRPCIOUnknownError
 eventToError _ = Left GRPCIOUnknownError
 
 -- | Returns true iff the given grpc_event was a success.
