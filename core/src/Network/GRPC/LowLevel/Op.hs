@@ -6,7 +6,6 @@
 
 module Network.GRPC.LowLevel.Op where
 
-import           Control.Concurrent                    (threadDelay)
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Trans.Except
@@ -225,17 +224,14 @@ runOps call cq ops =
                    ++ (show callError)
       case callError of
         Left x -> return $ Left x
-        Right () -> pluckWithInterval tag contexts 
-  where
-    pluckWithInterval tag contexts = do
-      ev <- pluck cq tag (Just 1) 
-      grpcDebug $ "runOps: pluck returned " ++ show ev
-      case ev of
         Right () -> do
-          grpcDebug "runOps: got good op; starting."
-          fmap (Right . catMaybes) $ mapM resultFromOpContext contexts
-        Left GRPCIOTimeout -> threadDelay 10000 >> pluckWithInterval tag contexts 
-        Left err -> return $ Left err 
+          ev <- pluck cq tag Nothing
+          grpcDebug $ "runOps: pluck returned " ++ show ev
+          case ev of
+            Right () -> do
+              grpcDebug "runOps: got good op; starting."
+              fmap (Right . catMaybes) $ mapM resultFromOpContext contexts
+            Left err -> return $ Left err
 
 runOps' :: C.Call
         -> CompletionQueue
