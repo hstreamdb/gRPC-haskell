@@ -212,8 +212,13 @@ destroyClientCall cc = do
   C.grpcCallUnref (unsafeCC cc)
 
 destroyServerCall :: ServerCall a -> IO ()
-destroyServerCall sc@ServerCall{ unsafeSC = c, .. } = do
+destroyServerCall sc@ServerCall{ .. } = do
   grpcDebug "destroyServerCall(R): entered."
   debugServerCall sc
-  grpcDebug $ "Destroying server-side call object: " ++ show c
-  C.grpcCallUnref c
+  grpcDebug $ "Destroying server-side call object: " ++ show unsafeSC 
+  C.grpcCallUnref unsafeSC 
+  shutdownResult <- shutdownCompletionQueue callCQ
+  case shutdownResult of
+    Left _ -> do putStrLn "Warning: completion queue didn't shut down."
+                 putStrLn "Trying to stop server anyway."
+    Right _ -> return ()
