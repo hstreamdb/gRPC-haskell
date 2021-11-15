@@ -22,12 +22,6 @@
 # rebuild the repository from scratch every time, which is extremely slow.  Only
 # do this if you want to exactly reproduce our continuous integration build.
 #
-# If you update the `grpc-haskell.cabal` file (such as changing dependencies or
-# adding new library/executable/test/benchmark sections), then update the
-# `default.nix` expression by running:
-#
-#     $ cabal2nix . > default.nix
-#
 # By default, Nix will pick a version for each one of your Haskell dependencies.
 # If you would like to select a different version then, run:
 #
@@ -52,26 +46,39 @@
 # Note that `cabal2nix` also takes an optional `--revision` flag if you want to
 # pick a revision other than the latest to depend on.
 #
-# Finally, if you want to test a local source checkout of a dependency, then
-# run:
+# If you want to test a local source checkout of a dependency, then run:
 #
 #     $ cabal2nix path/to/dependency/repo > nix/${package-name}.nix
+#
+# Finally, if you want to add grpc-haskell to your own package set, you can
+# setup the overlay with:
+#
+#     grpc-nixpkgs = import path/to/gRPC-haskell/nixpkgs.nix;
+#     grpc-overlay = (import path/to/gRPC-haskell/release.nix).overlay;
+#     # optionally use the same nixpkgs source
+#     pkgs = grpc-nixpkgs { overlays = [ grpc-overlay ]; };
+#
+# ... and use the extend function to setup haskell package override:
+#
+#     # see https://github.com/NixOS/nixpkgs/issues/25887
+#     haskellPackages = pkgs.haskellPackages.extend (self: super: {
+#       your-package = self.callCabal2nix "your-package" ./. { };
+#     };);
+
 let
-  nixpkgs = import ./nixpkgs.nix;
-
-  config = {
-    allowUnfree = true;
-    # For parameterized-0.5.0.0, which we patch for compatbility with
-    # proto3-wire-1.2.0 (which also uses the same patch)
-    allowBroken = true;
-  };
-
   overlay = pkgsNew: pkgsOld: {
 
     grpc = pkgsNew.callPackage ./nix/grpc.nix { };
 
     haskellPackages = pkgsOld.haskellPackages.override {
       overrides = haskellPackagesNew: haskellPackagesOld: rec {
+        parameterized =
+          pkgsNew.haskell.lib.overrideCabal
+          haskellPackagesOld.parameterized
+          (old: {
+            broken = false;
+            patches = (old.patches or [ ]) ++ [ ./nix/parameterized.patch ];
+          });
 
         haskell-src =
           haskellPackagesNew.callHackage "haskell-src" "1.0.3.1" {};
@@ -85,20 +92,22 @@ let
 
         grpc-haskell-core =
           pkgsNew.haskell.lib.buildFromSdist (pkgsNew.usesGRPC
-            (pkgsNew.haskell.lib.overrideCabal
-              (haskellPackagesNew.callPackage ./core { })
-              (_: { buildDepends = [ haskellPackagesNew.c2hs ]; })));
+            (haskellPackagesNew.callCabal2nix "grpc-haskell-core" ./core {
+                 gpr = pkgsNew.grpc;
+               }
+            )
+          );
 
         grpc-haskell-no-tests =
           pkgsNew.haskell.lib.buildFromSdist (pkgsNew.usesGRPC
             (pkgsNew.haskell.lib.dontCheck
-              (haskellPackagesNew.callPackage ./default.nix { })
+              (haskellPackagesNew.callCabal2nix "grpc-haskell" ./. { })
             ));
 
         grpc-haskell =
           pkgsNew.usesGRPC
             (pkgsNew.haskell.lib.overrideCabal
-              (pkgsNew.haskell.lib.buildFromSdist ((haskellPackagesNew.callPackage ./default.nix { })))
+              (pkgsNew.haskell.lib.buildFromSdist (haskellPackagesNew.callCabal2nix "grpc-haskell" ./. { }))
               (oldDerivation:
                 let
                   ghc =
@@ -111,16 +120,15 @@ let
                     ]);
 
                   python = pkgsNew.python.withPackages (pkgs: [
-                    # pkgs.protobuf3_0
                     pkgs.grpcio-tools
                   ]);
 
-                in rec {
+                in {
                   configureFlags = (oldDerivation.configureFlags or []) ++ [
                     "--flags=with-examples"
                   ];
 
-                  buildDepends = [
+                  buildDepends = (oldDerivation.buildDepends or [ ]) ++ [
                     pkgsNew.makeWrapper
                     # Give our nix-shell its own cabal so we don't pick up one
                     # from the user's environment by accident.
@@ -130,9 +138,10 @@ let
                     haskellPackagesNew.c2hs
                   ];
 
-                  patches = [ tests/tests.patch ];
+                  patches =
+                    (oldDerivation.patches or [ ]) ++ [ ./tests/tests.patch ];
 
-                  postPatch = ''
+                  postPatch = (oldDerivation.postPatch or "") + ''
                     patchShebangs tests
                     substituteInPlace tests/simple-client.sh \
                       --replace @makeWrapper@ ${pkgsNew.makeWrapper} \
@@ -159,15 +168,9 @@ let
                 })
             );
 
-        parameterized = pkgsNew.haskell.lib.appendPatch haskellPackagesOld.parameterized ./nix/parameterized.patch;
 
       };
     };
-
-    protobuf3_2NoCheck =
-      pkgsNew.stdenv.lib.overrideDerivation
-        pkgsNew.pythonPackages.protobuf
-        (oldAttrs : {doCheck = false; doInstallCheck = false;});
 
     test-grpc-haskell =
       pkgsNew.mkShell {
@@ -181,13 +184,18 @@ let
       };
 
     usesGRPC = haskellPackage:
+      # On Linux, LD_LIBRARY_PATH needs to be set for loading
+      # grpc-haskell{-,core} code into `ghci` from within `nix-shell`
+      # environments.
+      #
+      # TODO: We might try using pkgsNew.fixDarwinDylibNames (see PR#129)
+      # instead of setting DYLD_LIBRARY_PATH, but we might still need them
+      # around for `ghci` as on Linux.
+
       pkgsNew.haskell.lib.overrideCabal haskellPackage (oldAttributes: {
           preBuild = (oldAttributes.preBuild or "") +
             pkgsNew.lib.optionalString pkgsNew.stdenv.isDarwin ''
               export DYLD_LIBRARY_PATH=${pkgsNew.grpc}/lib''${DYLD_LIBRARY_PATH:+:}$DYLD_LIBRARY_PATH
-            '' +
-            pkgsNew.lib.optionalString pkgsNew.stdenv.isLinux ''
-              export LD_LIBRARY_PATH=${pkgsNew.grpc}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH
             '';
 
           shellHook = (oldAttributes.shellHook or "") +
@@ -203,9 +211,8 @@ let
 
   overlays = [ overlay ];
 
-in
+  config  = { };
 
-let
    nixpkgs = import ./nixpkgs.nix;
    linuxPkgs = nixpkgs { inherit config overlays; system = "x86_64-linux" ; };
   darwinPkgs = nixpkgs { inherit config overlays; system = "x86_64-darwin"; };
@@ -227,5 +234,6 @@ in
 
     grpc                       =       pkgs.grpc;
 
+    inherit pkgs config overlay;
     inherit (pkgs) test-grpc-haskell;
   }

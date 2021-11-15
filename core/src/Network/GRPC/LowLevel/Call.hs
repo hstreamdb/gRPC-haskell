@@ -5,7 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE NamedFieldPuns             #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -215,8 +215,8 @@ destroyServerCall :: ServerCall a -> IO ()
 destroyServerCall sc@ServerCall{ .. } = do
   grpcDebug "destroyServerCall(R): entered."
   debugServerCall sc
-  grpcDebug $ "Destroying server-side call object: " ++ show unsafeSC 
-  C.grpcCallUnref unsafeSC 
+  grpcDebug $ "Destroying server-side call object: " ++ show unsafeSC
+  C.grpcCallUnref unsafeSC
   shutdownResult <- shutdownCompletionQueue callCQ
   case shutdownResult of
     Left _ -> do putStrLn "Warning: completion queue didn't shut down."
