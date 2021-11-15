@@ -1,5 +1,5 @@
 name:                grpc-haskell
-version:             0.1.0
+version:             0.2.0
 synopsis:            Haskell implementation of gRPC layered on shared C library.
 homepage:            https://github.com/awakenetworks/gRPC-haskell
 license:             Apache-2.0
@@ -47,7 +47,7 @@ library
     Network.GRPC.HighLevel.Server.Unregistered
     Network.GRPC.HighLevel.Client
   default-language:     Haskell2010
-  ghc-options:          -Wall -fwarn-incomplete-patterns -fno-warn-unused-do-bind
+  ghc-options:          -Wall -Werror -fwarn-incomplete-patterns -fno-warn-unused-do-bind
   hs-source-dirs:       src
   default-extensions:   CPP
   CC-Options: -std=c99
@@ -63,7 +63,7 @@ executable hellos-server
       , bytestring == 0.10.*
       , containers >=0.5 && <0.7
       , grpc-haskell
-      , grpc-haskell-core
+      , grpc-haskell-core >=0.2.0
       , proto3-suite
       , proto3-wire
       , text
@@ -71,7 +71,7 @@ executable hellos-server
   else
     buildable: False
   default-language: Haskell2010
-  ghc-options:      -Wall -g -threaded -rtsopts -with-rtsopts=-N -O2
+  ghc-options:      -Wall -Werror -g -threaded -rtsopts -with-rtsopts=-N -O2
   hs-source-dirs:   examples/hellos/hellos-server
   main-is:          Main.hs
 
@@ -83,7 +83,7 @@ executable hellos-client
       , bytestring == 0.10.*
       , containers >=0.5 && <0.7
       , grpc-haskell
-      , grpc-haskell-core
+      , grpc-haskell-core >=0.2.0
       , proto3-suite
       , proto3-wire
       , text
@@ -91,7 +91,7 @@ executable hellos-client
   else
     buildable: False
   default-language: Haskell2010
-  ghc-options:      -Wall -g -threaded -rtsopts -with-rtsopts=-N -O2
+  ghc-options:      -Wall -Werror -g -threaded -rtsopts -with-rtsopts=-N -O2
   hs-source-dirs:   examples/hellos/hellos-client
   main-is:          Main.hs
 
@@ -104,7 +104,7 @@ executable echo-server
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
-      , grpc-haskell-core
+      , grpc-haskell-core >=0.2.0
       , optparse-generic
       , proto3-suite
       , proto3-wire
@@ -115,7 +115,7 @@ executable echo-server
   else
     buildable: False
   default-language: Haskell2010
-  ghc-options:      -Wall -g -threaded -rtsopts -with-rtsopts=-N -O2
+  ghc-options:      -Wall -Werror -g -threaded -rtsopts -with-rtsopts=-N -O2
   hs-source-dirs:   examples/echo/echo-hs
   main-is:          EchoServer.hs
 
@@ -129,7 +129,7 @@ executable arithmetic-server
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
-      , grpc-haskell-core
+      , grpc-haskell-core >=0.2.0
       , optparse-generic
       , proto3-suite
       , proto3-wire
@@ -140,7 +140,7 @@ executable arithmetic-server
   else
     buildable: False
   default-language: Haskell2010
-  ghc-options:      -Wall -g -threaded -rtsopts -with-rtsopts=-N -O2
+  ghc-options:      -Wall -Werror -g -threaded -rtsopts -with-rtsopts=-N -O2
   hs-source-dirs:   examples/tutorial/
   main-is:          ArithmeticServer.hs
 
@@ -153,7 +153,7 @@ executable arithmetic-client
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
-      , grpc-haskell-core
+      , grpc-haskell-core >=0.2.0
       , optparse-generic
       , proto3-suite
       , proto3-wire
@@ -164,7 +164,7 @@ executable arithmetic-client
   else
     buildable: False
   default-language: Haskell2010
-  ghc-options:      -Wall -g -threaded -rtsopts -with-rtsopts=-N -O2
+  ghc-options:      -Wall -Werror -g -threaded -rtsopts -with-rtsopts=-N -O2
   hs-source-dirs:   examples/tutorial/
   main-is:          ArithmeticClient.hs
 
@@ -177,7 +177,7 @@ executable echo-client
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
-      , grpc-haskell-core
+      , grpc-haskell-core >=0.2.0
       , optparse-generic
       , proto3-suite
       , proto3-wire
@@ -189,14 +189,13 @@ executable echo-client
   else
     buildable: False
   default-language: Haskell2010
-  ghc-options:      -Wall -g -threaded -rtsopts -with-rtsopts=-N -O2
+  ghc-options:      -Wall -Werror -g -threaded -rtsopts -with-rtsopts=-N -O2
   hs-source-dirs:   examples/echo/echo-hs
   main-is:          EchoClient.hs
 
 test-suite tests
   build-depends:
       base >=4.8 && <5.0
-    , grpc-haskell
     , bytestring ==0.10.*
     , unix
     , time
@@ -217,7 +216,7 @@ test-suite tests
   other-modules:
     GeneratedTests
   default-language:     Haskell2010
-  ghc-options:          -Wall -fwarn-incomplete-patterns -fno-warn-unused-do-bind -g -threaded -rtsopts
+  ghc-options:          -Wall -Werror -fwarn-incomplete-patterns -fno-warn-unused-do-bind -g -threaded -rtsopts
   hs-source-dirs:       tests
   main-is:              Properties.hs
   type:                 exitcode-stdio-1.0
@@ -241,7 +240,7 @@ benchmark bench
     , random >=1.0.0
   hs-source-dirs: bench
   main-is: Bench.hs
-  ghc-options:      -Wall -O2 -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:      -Wall -Werror -O2 -threaded -rtsopts -with-rtsopts=-N
   if flag(debug)
     CPP-Options: -DDEBUG
     CC-Options:  -DGRPC_HASKELL_DEBUG
