@@ -97,7 +97,7 @@ channelCreateCall
                                             show deadline])
     call <- C.grpcChannelCreateRegisteredCall chan parentPtr mask unsafeCQ
                                               handle deadline C.reserved
-    return $ Right $ ClientCall call
+    return $ Right $ ClientCall call cq
 
 -- | Create the call object to handle a registered call.
 serverRequestCall :: RegisteredMethod mt

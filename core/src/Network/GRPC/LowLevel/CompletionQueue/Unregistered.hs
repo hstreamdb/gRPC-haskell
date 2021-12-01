@@ -33,7 +33,7 @@ channelCreateCall chan parent mask cq@CompletionQueue{..} meth endpt deadline =
   withPermission Push cq $ do
     call <- C.grpcChannelCreateCall chan parent mask unsafeCQ
               (unMethodName meth) (unEndpoint endpt) deadline C.reserved
-    return $ Right $ ClientCall call
+    return $ Right $ ClientCall call cq
 
 
 serverRequestCall :: C.Server
