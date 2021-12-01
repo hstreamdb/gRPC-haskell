@@ -272,7 +272,7 @@ clientReader :: Client
              -> MetadataMap -- ^ Metadata to send with the request
              -> ClientReaderHandler
              -> IO (Either GRPCIOError ClientReaderResult)
-clientReader cl@Client{ clientCQ = cq } rm tm body initMeta f =
+clientReader cl rm tm body initMeta f =
   withClientCall cl rm tm go
   where
     go cc@ClientCall{unsafeCC = c, clientCallCQ = callCQ} = runExceptT $ do
@@ -305,7 +305,7 @@ clientWriterCmn :: Client -- ^ The active client
                 -> ClientWriterHandler
                 -> ClientCall -- ^ The active client call
                 -> IO (Either GRPCIOError ClientWriterResult)
-clientWriterCmn (clientCQ -> cq) initMeta f ClientCall{unsafeCC = c, clientCallCQ = callCQ} =
+clientWriterCmn _ initMeta f ClientCall{unsafeCC = c, clientCallCQ = callCQ} =
   runExceptT $ do
     sendInitialMetadata c callCQ initMeta
     liftIO $ f (streamSendPrim c callCQ)
@@ -359,7 +359,7 @@ clientRW' :: Client
           -> MetadataMap
           -> ClientRWHandler
           -> IO (Either GRPCIOError ClientRWResult)
-clientRW' (clientCQ -> cq) cc@ClientCall{unsafeCC = c, clientCallCQ = callCQ} initMeta f = runExceptT $ do
+clientRW' _ cc@ClientCall{unsafeCC = c, clientCallCQ = callCQ} initMeta f = runExceptT $ do
   sendInitialMetadata c callCQ initMeta
 
   -- 'mdmv' is used to synchronize between callers of 'getMD' and 'recv'
@@ -452,7 +452,7 @@ clientRequestParent
   -> MetadataMap
   -- ^ Metadata to send with the request
   -> IO (Either GRPCIOError NormalRequestResult)
-clientRequestParent cl@(clientCQ -> cq) p rm tm body initMeta =
+clientRequestParent cl p rm tm body initMeta =
   withClientCallParent cl rm tm p (fmap join . go)
   where
     go ClientCall{unsafeCC = c, clientCallCQ = callCQ} =
