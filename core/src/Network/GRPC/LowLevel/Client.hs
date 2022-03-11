@@ -33,7 +33,8 @@ import qualified Network.GRPC.Unsafe.Time              as C
 -- | Represents the context needed to perform client-side gRPC operations.
 data Client = Client {clientChannel :: C.Channel,
                       clientCQ      :: CompletionQueue,
-                      clientConfig  :: ClientConfig
+                      clientConfig  :: ClientConfig,
+                      clientGRPC    :: GRPC
                      }
 
 data ClientSSLKeyCertPair = ClientSSLKeyCertPair
@@ -108,6 +109,7 @@ createClient grpc clientConfig =
   C.withChannelArgs (clientArgs clientConfig) $ \chanargs -> do
     clientChannel <- createChannel clientConfig chanargs
     clientCQ <- createCompletionQueue grpc
+    let clientGRPC = grpc
     return Client{..}
 
 destroyClient :: Client -> IO ()
@@ -198,9 +200,10 @@ clientCreateCallParent :: Client
                            -- ^ Optional parent call for cascading cancellation.
                            -> IO (Either GRPCIOError ClientCall)
 clientCreateCallParent Client{..} rm timeout parent = do
+  newCQ <- createCompletionQueue clientGRPC
   C.withDeadlineSeconds timeout $ \deadline -> do
     channelCreateCall clientChannel parent C.propagateDefaults
-      clientCQ (methodHandle rm) deadline
+      newCQ (methodHandle rm) deadline
 
 -- | Handles safe creation and cleanup of a client call
 withClientCall :: Client
@@ -269,17 +272,17 @@ clientReader :: Client
              -> MetadataMap -- ^ Metadata to send with the request
              -> ClientReaderHandler
              -> IO (Either GRPCIOError ClientReaderResult)
-clientReader cl@Client{ clientCQ = cq } rm tm body initMeta f =
+clientReader cl rm tm body initMeta f =
   withClientCall cl rm tm go
   where
-    go cc@(unsafeCC -> c) = runExceptT $ do
-      void $ runOps' c cq [ OpSendInitialMetadata initMeta
+    go cc@ClientCall{unsafeCC = c, clientCallCQ = callCQ} = runExceptT $ do
+      void $ runOps' c callCQ [ OpSendInitialMetadata initMeta
                           , OpSendMessage body
                           , OpSendCloseFromClient
                           ]
-      srvMD <- recvInitialMetadata c cq
-      liftIO $ f cc srvMD (streamRecvPrim c cq)
-      recvStatusOnClient c cq
+      srvMD <- recvInitialMetadata c callCQ
+      liftIO $ f cc srvMD (streamRecvPrim c callCQ)
+      recvStatusOnClient c callCQ
 
 --------------------------------------------------------------------------------
 -- clientWriter (client side of client streaming mode)
@@ -302,13 +305,13 @@ clientWriterCmn :: Client -- ^ The active client
                 -> ClientWriterHandler
                 -> ClientCall -- ^ The active client call
                 -> IO (Either GRPCIOError ClientWriterResult)
-clientWriterCmn (clientCQ -> cq) initMeta f (unsafeCC -> c) =
+clientWriterCmn _ initMeta f ClientCall{unsafeCC = c, clientCallCQ = callCQ} =
   runExceptT $ do
-    sendInitialMetadata c cq initMeta
-    liftIO $ f (streamSendPrim c cq)
-    sendSingle c cq OpSendCloseFromClient
+    sendInitialMetadata c callCQ initMeta
+    liftIO $ f (streamSendPrim c callCQ)
+    sendSingle c callCQ OpSendCloseFromClient
     let ops = [OpRecvInitialMetadata, OpRecvMessage, OpRecvStatusOnClient]
-    runOps' c cq ops >>= \case
+    runOps' c callCQ ops >>= \case
       CWRFinal mmsg initMD trailMD st ds
         -> return (mmsg, initMD, trailMD, st, ds)
       _ -> throwE (GRPCIOInternalUnexpectedRecv "clientWriter")
@@ -356,8 +359,8 @@ clientRW' :: Client
           -> MetadataMap
           -> ClientRWHandler
           -> IO (Either GRPCIOError ClientRWResult)
-clientRW' (clientCQ -> cq) cc@(unsafeCC -> c) initMeta f = runExceptT $ do
-  sendInitialMetadata c cq initMeta
+clientRW' _ cc@ClientCall{unsafeCC = c, clientCallCQ = callCQ} initMeta f = runExceptT $ do
+  sendInitialMetadata c callCQ initMeta
 
   -- 'mdmv' is used to synchronize between callers of 'getMD' and 'recv'
   -- below. The behavior of these two operations is different based on their
@@ -393,17 +396,17 @@ clientRW' (clientCQ -> cq) cc@(unsafeCC -> c) initMeta f = runExceptT $ do
     getMD = modifyMVar mdmv $ \case
       Just emd -> return (Just emd, emd)
       Nothing  -> do -- getMD invoked before recv
-        emd <- runExceptT (recvInitialMetadata c cq)
+        emd <- runExceptT (recvInitialMetadata c callCQ)
         return (Just emd, emd)
 
     recv = modifyMVar mdmv $ \case
-      Just emd -> (Just emd,) <$> streamRecvPrim c cq
+      Just emd -> (Just emd,) <$> streamRecvPrim c callCQ
       Nothing  -> -- recv invoked before getMD
-        runExceptT (recvInitialMsgMD c cq) >>= \case
+        runExceptT (recvInitialMsgMD c callCQ) >>= \case
           Left e          -> return (Just (Left e), Left e)
           Right (mbs, md) -> return (Just (Right md), Right mbs)
 
-    send = streamSendPrim c cq
+    send = streamSendPrim c callCQ
 
     -- TODO: Regarding usage of writesDone so that there isn't such a burden on
     -- the end user programmer (i.e. must invoke it, and only once): we can just
@@ -414,10 +417,10 @@ clientRW' (clientCQ -> cq) cc@(unsafeCC -> c) initMeta f = runExceptT $ do
     -- terminates. These simpler versions model the most common use cases
     -- without having to expose the half-close semantics to the end user
     -- programmer.
-    writesDone = writesDonePrim c cq
+    writesDone = writesDonePrim c callCQ
 
   liftIO (f cc getMD recv send writesDone)
-  recvStatusOnClient c cq -- Finish()
+  recvStatusOnClient c callCQ -- Finish()
 
 --------------------------------------------------------------------------------
 -- clientRequest (client side of normal request/response)
@@ -449,13 +452,13 @@ clientRequestParent
   -> MetadataMap
   -- ^ Metadata to send with the request
   -> IO (Either GRPCIOError NormalRequestResult)
-clientRequestParent cl@(clientCQ -> cq) p rm tm body initMeta =
+clientRequestParent cl p rm tm body initMeta =
   withClientCallParent cl rm tm p (fmap join . go)
   where
-    go (unsafeCC -> c) =
+    go ClientCall{unsafeCC = c, clientCallCQ = callCQ} =
       -- NB: the send and receive operations below *must* be in separate
       -- batches, or the client hangs when the server can't be reached.
-      runOps c cq
+      runOps c callCQ
         [ OpSendInitialMetadata initMeta
         , OpSendMessage body
         , OpSendCloseFromClient
@@ -465,7 +468,7 @@ clientRequestParent cl@(clientCQ -> cq) p rm tm body initMeta =
             grpcDebug "clientRequest(R) : batch error sending."
             return $ Left x
           Right rs ->
-            runOps c cq
+            runOps c callCQ
               [ OpRecvInitialMetadata
               , OpRecvMessage
               , OpRecvStatusOnClient

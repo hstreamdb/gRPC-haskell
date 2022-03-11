@@ -143,7 +143,9 @@ methodType (RegisteredMethodBiDiStreaming _ _ _)   = BiDiStreaming
 
 -- | Represents one GRPC call (i.e. request) on the client.
 -- This is used to associate send/receive 'Op's with a request.
-data ClientCall = ClientCall { unsafeCC :: C.Call }
+data ClientCall = ClientCall { unsafeCC :: C.Call
+                             , clientCallCQ :: CompletionQueue
+                             }
 
 clientCallCancel :: ClientCall -> IO ()
 clientCallCancel cc = C.grpcCallCancel (unsafeCC cc) C.reserved
@@ -211,6 +213,11 @@ destroyClientCall :: ClientCall -> IO ()
 destroyClientCall cc = do
   grpcDebug "Destroying client-side call object."
   C.grpcCallUnref (unsafeCC cc)
+  shutdownResult <- shutdownCompletionQueue (clientCallCQ cc)
+  case shutdownResult of
+    Left x -> do putStrLn $ "Failed to stop client call CQ: " ++ show x
+                 putStrLn $ "Trying to shut down anyway."
+    Right _ -> return ()
 
 destroyServerCall :: ServerCall a -> IO ()
 destroyServerCall sc@ServerCall{ .. } = do
