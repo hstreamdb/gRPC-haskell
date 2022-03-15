@@ -226,6 +226,8 @@ data ServerOptions = ServerOptions
     -- ^ Security configuration.
   , optLogger               :: String -> IO ()
     -- ^ Logging function to use to log errors in handling calls.
+  , optServerOnStarted      :: Maybe (IO ())
+    -- ^ OnStarted event listener
   , optMaxReceiveMessageLength :: Maybe Natural
     -- ^ Maximum length (in bytes) that the service may receive in a single message.
   , optMaxMetadataSize :: Maybe Natural
@@ -246,6 +248,7 @@ defaultOptions = ServerOptions
   , optInitialMetadata      = mempty
   , optSSLConfig            = Nothing
   , optLogger               = hPutStrLn stderr
+  , optServerOnStarted      = Nothing
   , optMaxReceiveMessageLength = Nothing
   , optMaxMetadataSize = Nothing
   }

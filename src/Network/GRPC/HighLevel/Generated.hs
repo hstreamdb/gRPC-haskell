@@ -79,6 +79,8 @@ data ServiceOptions = ServiceOptions
     -- ^ Security configuration.
   , logger               :: String -> IO ()
     -- ^ Logging function to use to log errors in handling calls.
+  , serverOnStarted :: Maybe (IO ())
+    -- ^ OnStarted event listener
   , serverMaxReceiveMessageLength :: Maybe Natural
     -- ^ Maximum length (in bytes) that the service may receive in a single message.
   , serverMaxMetadataSize :: Maybe Natural
@@ -96,6 +98,7 @@ defaultServiceOptions = ServiceOptions
   , Network.GRPC.HighLevel.Generated.initialMetadata = mempty
   , Network.GRPC.HighLevel.Generated.sslConfig       = Nothing
   , Network.GRPC.HighLevel.Generated.logger          = hPutStrLn stderr
+  , Network.GRPC.HighLevel.Generated.serverOnStarted = Nothing
   , Network.GRPC.HighLevel.Generated.serverMaxReceiveMessageLength = Nothing
   , Network.GRPC.HighLevel.Generated.serverMaxMetadataSize = Nothing
   }

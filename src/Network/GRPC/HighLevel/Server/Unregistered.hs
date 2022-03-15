@@ -92,6 +92,8 @@ serverLoop ServerOptions{..} =
   -- runs in its own thread.
   withGRPC $ \grpc ->
     withServer grpc config $ \server -> do
+      foldMap id optServerOnStarted
+
       -- Killing the "serverLoop" thread triggers the "withServer"
       -- cleanup code, which initiates a shutdown, which in turn
       -- kills the "dispatchLoop" thread and any other thread we
