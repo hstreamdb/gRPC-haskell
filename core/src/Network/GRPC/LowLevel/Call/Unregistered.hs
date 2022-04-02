@@ -47,8 +47,12 @@ debugServerCall = const $ return ()
 #endif
 
 destroyServerCall :: ServerCall -> IO ()
-destroyServerCall call@ServerCall{..} = do
+destroyServerCall sc@ServerCall{ .. } = do
   grpcDebug "destroyServerCall(U): entered."
-  debugServerCall call
+  debugServerCall sc
   grpcDebug $ "Destroying server-side call object: " ++ show unsafeSC
   C.grpcCallUnref unsafeSC
+  shutdownResult <- shutdownCompletionQueue callCQ
+  case shutdownResult of
+    Left _ -> putStrLn "Warning: completion queue didn't shut down."
+    Right _ -> return ()
