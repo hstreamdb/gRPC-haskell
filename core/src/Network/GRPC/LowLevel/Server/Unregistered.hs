@@ -126,7 +126,9 @@ serverHandleNormalCall'
                 Right _ -> do
                   grpcDebug "serverHandleNormalCall(U): ops done."
                   return $ Right ()
-          x -> error $ "impossible pattern match: " ++ show x
+          x -> do
+            grpcDebug $ "serverHandleNormalCall(U): unexpected recv:" ++ show x
+            return $ Left (GRPCIOInternalUnexpectedRecv $ show x)
 
 serverReader :: Server
              -> ServerCall
