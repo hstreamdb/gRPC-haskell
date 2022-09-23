@@ -158,7 +158,8 @@ resultFromOpContext (OpRecvMessageContext pbb) = do
   grpcDebug "resultFromOpContext: OpRecvMessageContext"
   bb@(C.ByteBuffer bbptr) <- peek pbb
   if bbptr == nullPtr
-     then do grpcDebug "resultFromOpContext: WARNING: got empty message."
+     -- The returned byte buffer will be NULL if trailing metadata was received instead of a message.
+     then do grpcDebug "resultFromOpContext: WARNING: didn't get any message."
              return $ Just $ OpRecvMessageResult Nothing
      else do bs <- C.copyByteBufferToByteString bb
              grpcDebug $ "resultFromOpContext: bb copied: " ++ show bs
