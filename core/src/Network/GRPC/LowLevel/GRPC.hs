@@ -4,7 +4,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 
 module Network.GRPC.LowLevel.GRPC(
-GRPC
+GRPC (..)  -- XXX: hstream.common need GRPC constructor
 , withGRPC
 , GRPCIOError(..)
 , throwIfCallError
