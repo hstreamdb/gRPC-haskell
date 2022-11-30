@@ -33,7 +33,7 @@ Flag enable-bench
 library
   build-depends:
       base >=4.8 && <5.0
-    , bytestring ==0.10.*
+    , bytestring
     , proto3-suite
     , proto3-wire
     , grpc-haskell-core
@@ -60,7 +60,7 @@ executable hellos-server
     build-depends:
       base >=4.8 && <5.0
       , async
-      , bytestring == 0.10.*
+      , bytestring
       , containers >=0.5 && <0.7
       , grpc-haskell
       , grpc-haskell-core >=0.2.0
@@ -80,7 +80,7 @@ executable hellos-client
     build-depends:
       base >=4.8 && <5.0
       , async
-      , bytestring == 0.10.*
+      , bytestring
       , containers >=0.5 && <0.7
       , grpc-haskell
       , grpc-haskell-core >=0.2.0
@@ -100,7 +100,7 @@ executable echo-server
     build-depends:
       base >=4.8 && <5.0
       , async
-      , bytestring == 0.10.*
+      , bytestring
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
@@ -125,7 +125,7 @@ executable arithmetic-server
     build-depends:
       base >=4.8 && <5.0
       , async
-      , bytestring == 0.10.*
+      , bytestring
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
@@ -149,7 +149,7 @@ executable arithmetic-client
     build-depends:
       base >=4.8 && <5.0
       , async
-      , bytestring == 0.10.*
+      , bytestring
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
@@ -173,7 +173,7 @@ executable echo-client
     build-depends:
       base >=4.8 && <5.0
       , async
-      , bytestring == 0.10.*
+      , bytestring
       , containers >=0.5 && <0.7
       , deepseq
       , grpc-haskell
@@ -196,7 +196,7 @@ executable echo-client
 test-suite tests
   build-depends:
       base >=4.8 && <5.0
-    , bytestring ==0.10.*
+    , bytestring
     , unix
     , time
     , async
