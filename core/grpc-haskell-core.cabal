@@ -19,6 +19,11 @@ Flag Debug
   Manual:      True
   Default:     False
 
+Flag grpc_eliminate_insecure_build
+  Description: For grpc version after https://github.com/grpc/grpc/pull/25586
+  Manual:      True
+  Default:     False
+
 library
   build-depends:
       base >=4.8 && <5.0
@@ -77,6 +82,8 @@ library
   if flag(debug)
     CPP-Options: -DDEBUG
     CC-Options:  -DGRPC_HASKELL_DEBUG -std=c99
+  if flag(grpc_eliminate_insecure_build)
+    CPP-Options: -DGRPC_ELIMINATE_INSECURE_BUILD
 
 test-suite tests
   build-depends:

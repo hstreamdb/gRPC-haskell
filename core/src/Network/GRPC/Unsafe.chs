@@ -44,6 +44,13 @@ deriving instance Show Channel
 -- | Represents a server. Created on the server side.
 {#pointer *grpc_server as Server newtype #}
 
+-- | A server credentials object that represents a way to authenticate a server.
+{#pointer *grpc_server_credentials as ServerCredentials newtype #}
+
+-- | A channel credentials object represents a way to authenticate a client on a
+-- channel.
+{#pointer *grpc_channel_credentials as ChannelCredentials newtype #}
+
 -- | Represents a pointer to a call. To users of the gRPC core library, this
 -- type is abstract; we have no access to its fields.
 {#pointer *grpc_call as Call newtype #}
@@ -189,6 +196,11 @@ castPeek p = do
    useAsCString* `ByteString', useAsCString* `ByteString', `CTimeSpecPtr',unReserved `Reserved'}
   -> `Call'#}
 
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+{#fun grpc_channel_create as ^
+  {useAsCString* `ByteString', `ChannelCredentials', `GrpcChannelArgs'}
+  -> `Channel'#}
+#else
 -- | Create a channel (on the client) to the server. The first argument is
 -- host and port, e.g. @"localhost:50051"@. The gRPC docs say that most clients
 -- are expected to pass a 'nullPtr' for the 'ChannelArgsPtr'. We currently don't
@@ -196,6 +208,7 @@ castPeek p = do
 -- undocumented.
 {#fun grpc_insecure_channel_create as ^
   {useAsCString* `ByteString', `GrpcChannelArgs', unReserved `Reserved'} -> `Channel'#}
+#endif
 
 {#fun grpc_channel_register_call as ^
   {`Channel', useAsCString* `ByteString',useAsCString* `ByteString',unReserved `Reserved'}
@@ -258,8 +271,13 @@ getPeerPeek cstr = do
 {#fun grpc_server_register_completion_queue as ^
   {`Server', `CompletionQueue', unReserved `Reserved'} -> `()'#}
 
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+{#fun grpc_server_add_http2_port as ^
+  {`Server', useAsCString* `ByteString', `ServerCredentials'} -> `Int'#}
+#else
 {#fun grpc_server_add_insecure_http2_port as ^
   {`Server', useAsCString* `ByteString'} -> `Int'#}
+#endif
 
 -- | Starts a server. To shut down the server, call these in order:
 -- 'grpcServerShutdownAndNotify', 'grpcServerCancelAllCalls',
