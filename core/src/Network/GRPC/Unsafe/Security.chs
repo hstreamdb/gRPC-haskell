@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings  #-}
+
 {-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections      #-}
@@ -20,9 +20,11 @@ import Network.GRPC.LowLevel.GRPC.MetadataMap (MetadataMap)
 #include <grpc_haskell.h>
 
 {#import Network.GRPC.Unsafe#}
-{#import Network.GRPC.Unsafe.ChannelArgs#}
 {#import Network.GRPC.Unsafe.Metadata#}
 {#import Network.GRPC.Unsafe.Op#}
+#ifndef GRPC_ELIMINATE_INSECURE_BUILD
+{#import Network.GRPC.Unsafe.ChannelArgs#}
+#endif
 
 {#context prefix = "grpc_"#}
 
@@ -48,10 +50,6 @@ instance Storable AuthContext where
 {#pointer *auth_property_iterator as ^ newtype#}
 
 {#pointer *call_credentials as ^ newtype#}
-
-{#pointer *channel_credentials as ^ newtype#}
-
-{#pointer *server_credentials as ^ newtype#}
 
 withAuthPropertyIterator :: AuthContext
                             -> (AuthPropertyIterator -> IO a)
@@ -159,6 +157,10 @@ getAuthProperties ctx = withAuthPropertyIterator ctx $ \i -> do
 
 -- * Channel Credentials
 
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+{#fun unsafe insecure_credentials_create as ^ {} -> `ChannelCredentials'#}
+#endif
+
 {#fun unsafe channel_credentials_release as ^
   {`ChannelCredentials'} -> `()'#}
 
@@ -187,6 +189,12 @@ sslChannelCredentialsCreate (Just s1) _ _ =
 sslChannelCredentialsCreate _ _ _ =
   sslCredentialsCreateInternal nullPtr nullPtr nullPtr
 
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+withInsecureChannelCredentials :: (ChannelCredentials -> IO a) -> IO a
+withInsecureChannelCredentials =
+  bracket insecureCredentialsCreate channelCredentialsRelease
+#endif
+
 withChannelCredentials :: Maybe ByteString
                           -> Maybe ByteString
                           -> Maybe ByteString
@@ -212,6 +220,10 @@ withChannelCredentials x y z = bracket (sslChannelCredentialsCreate x y z)
 {#fun unsafe server_credentials_release as ^
   {`ServerCredentials'} -> `()'#}
 
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+{#fun insecure_server_credentials_create as ^ {} -> `ServerCredentials'#}
+#endif
+
 {#fun ssl_server_credentials_create_internal as ^
   {`CString',
    useAsCString*  `ByteString',
@@ -235,6 +247,12 @@ sslServerCredentialsCreate Nothing k c t =
 sslServerCredentialsCreate (Just cc) k c t =
   useAsCString cc $ \cc' -> sslServerCredentialsCreateInternal cc' k c t
 
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+withInsecureServerCredentials :: (ServerCredentials -> IO a) -> IO a
+withInsecureServerCredentials =
+  bracket insecureServerCredentialsCreate serverCredentialsRelease
+#endif
+
 withServerCredentials :: Maybe ByteString
                          -- ^ PEM encoding of the client root certificates.
                          -- Can be 'Nothing' if SSL authentication of
@@ -252,12 +270,14 @@ withServerCredentials a b c d = bracket (sslServerCredentialsCreate a b c d)
 
 -- * Creating Secure Clients/Servers
 
+#ifndef GRPC_ELIMINATE_INSECURE_BUILD
 {#fun server_add_secure_http2_port as ^
   {`Server',useAsCString*  `ByteString', `ServerCredentials'} -> `Int'#}
 
 {#fun secure_channel_create as ^
   {`ChannelCredentials',useAsCString* `ByteString', `GrpcChannelArgs', unReserved `Reserved'}
   -> `Channel'#}
+#endif
 
 -- * Custom metadata processing -- server side
 

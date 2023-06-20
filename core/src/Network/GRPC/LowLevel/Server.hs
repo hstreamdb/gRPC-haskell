@@ -1,13 +1,13 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE TupleSections       #-}
-{-# LANGUAGE ViewPatterns        #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 -- | This module defines data structures and operations pertaining to registered
 -- servers using registered calls; for unregistered support, see
@@ -143,7 +143,12 @@ serverEndpoint ServerConfig{..} = endpoint host port
 addPort :: C.Server -> ServerConfig -> IO Int
 addPort server conf@ServerConfig{..} =
   case sslConfig of
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+    Nothing ->
+      C.withInsecureServerCredentials $ C.grpcServerAddHttp2Port server e
+#else
     Nothing -> C.grpcServerAddInsecureHttp2Port server e
+#endif
     Just ServerSSLConfig{..} ->
       do crc <- mapM B.readFile clientRootCert
          spk <- B.readFile serverPrivateKey
@@ -152,7 +157,11 @@ addPort server conf@ServerConfig{..} =
            case customMetadataProcessor of
              Just p -> C.setMetadataProcessor creds p
              Nothing -> return ()
+#ifdef GRPC_ELIMINATE_INSECURE_BUILD
+           C.grpcServerAddHttp2Port server e creds
+#else
            C.serverAddSecureHttp2Port server e creds
+#endif
   where e = unEndpoint $ serverEndpoint conf
 
 startServer :: GRPC -> ServerConfig -> IO Server
@@ -465,12 +474,12 @@ serverHandleNormalCall s rm initMeta f =
     go sc@ServerCall{ unsafeSC = c, callCQ = ccq } = do
       (rsp, trailMeta, st, ds) <- f sc
       case rsp of
-        Nothing -> 
+        Nothing ->
           void <$> runOps c ccq [ OpSendInitialMetadata initMeta
                                 , OpRecvCloseOnServer
                                 , OpSendStatusFromServer trailMeta st ds
                                 ]
-        Just rp -> 
+        Just rp ->
           void <$> runOps c ccq [ OpSendInitialMetadata initMeta
                                 , OpRecvCloseOnServer
                                 , OpSendMessage rp
