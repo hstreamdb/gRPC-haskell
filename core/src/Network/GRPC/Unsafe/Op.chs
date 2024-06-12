@@ -48,8 +48,8 @@ deriving instance Show OpArray
 
 -- | Creates an op of type GRPC_OP_SEND_INITIAL_METADATA at the specified
 -- index of the given 'OpArray', containing the given
--- metadata. The metadata is copied and can be destroyed after calling this
--- function.
+-- metadata. The metadata is moved and will be freed automatically when
+-- all the ops of a certain call is finished.
 {#fun unsafe op_send_initial_metadata as ^
   {`OpArray', `Int', `MetadataKeyValPtr', `Int'} -> `()'#}
 
@@ -58,8 +58,8 @@ deriving instance Show OpArray
 {#fun unsafe op_send_initial_metadata_empty as ^ {`OpArray', `Int'} -> `()'#}
 
 -- | Creates an op of type GRPC_OP_SEND_MESSAGE at the specified index of
--- the given 'OpArray'. The given 'ByteBuffer' is
--- copied and can be destroyed after calling this function.
+-- the given 'OpArray'. The given 'ByteBuffer' is moved and will be
+-- freed automatically when all the ops of a certain call is finished.
 {#fun unsafe op_send_message as ^ {`OpArray', `Int', `ByteBuffer'} -> `()'#}
 
 -- | Creates an 'Op' of type GRPC_OP_SEND_CLOSE_FROM_CLIENT at the specified
@@ -96,9 +96,8 @@ deriving instance Show OpArray
 {#fun unsafe op_recv_close_server as ^ {`OpArray', `Int', id `Ptr CInt'} -> `()'#}
 
 -- | Creates an op of type GRPC_OP_SEND_STATUS_FROM_SERVER at the specified
--- index of the given 'OpArray'. The given
--- Metadata and string are copied when creating the op, and can be safely
--- destroyed immediately after calling this function.
+-- index of the given 'OpArray'. The given metadata and string are moved
+-- and will be freed automatically when all the ops of a certain call is finished.
 {#fun unsafe op_send_status_server as ^
   {`OpArray', `Int', `Int', `MetadataKeyValPtr', `StatusCode', `Slice'}
   -> `()'#}
